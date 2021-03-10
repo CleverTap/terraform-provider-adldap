@@ -31,7 +31,6 @@ func main() {
 	}
 
 	if debugMode {
-		// TODO: update this string with the full name of your provider as used in your configs
 		err := plugin.Debug(context.Background(), "github.com/greennosedmule/terraform-provider-adldap", opts)
 		if err != nil {
 			log.Fatal(err.Error())

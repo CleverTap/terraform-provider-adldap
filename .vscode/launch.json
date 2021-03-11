@@ -15,7 +15,7 @@
                 "TF_ACC": "1",
             },
             "envFile": "${workspaceFolder}/testdata/debug.env",
-            "args": [],
+            "args": ["-test.v"],
         },
         {
             "name": "Debug - Attach External CLI",

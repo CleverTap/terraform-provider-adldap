@@ -3,18 +3,12 @@ package provider
 import (
 	"fmt"
 	"math/rand"
-	"os"
-	"regexp"
 	"testing"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-)
-
-var (
-	testOU = os.Getenv("ADLDAP_TEST_OU")
 )
 
 // Unit tests
@@ -34,7 +28,7 @@ func TestGetParentOU(t *testing.T) {
 		},
 		{
 			ou:     "OU=First Unit, DC=example, DC=com",
-			parent: "DC=example, DC=com",
+			parent: "DC=example,DC=com",
 		},
 		{
 			ou:     "OU=First Unit,DC=example,DC=com",
@@ -57,14 +51,7 @@ func TestGetParentOU(t *testing.T) {
 // Acceptance tests
 
 func TestAccOrganizationalUnit(t *testing.T) {
-	rInt := rand.New(rand.NewSource(time.Now().UnixNano())).Int()
-	if match, _ := regexp.MatchString(`.*%s.*`, testOU); match {
-		testOU = fmt.Sprintf(testOU, rInt)
-	}
-
-	if testOU == "" {
-		t.Fatalf("ADLDAP_TEST_OU environment variable must be set for acceptance tests to function.")
-	}
+	testOU := fmt.Sprintf("OU=Terraform Acceptance Test %d,%s", rand.New(rand.NewSource(time.Now().UnixNano())).Int(), testAccProviderMeta.searchBase)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },

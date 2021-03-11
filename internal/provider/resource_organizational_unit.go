@@ -97,24 +97,15 @@ func resourceOrganizationalUnitDelete(ctx context.Context, d *schema.ResourceDat
 }
 
 func ouExists(client *ldap.Conn, searchBase string, ou string) (bool, error) {
-	filter := fmt.Sprintf("(&(objectClass=organizationalUnit)(distinguishedName=%s))", ou)
-	requestedAttributes := []string{"distinguishedName"}
-
-	result, err := ldapSearch(client, searchBase, filter, requestedAttributes)
-	if err != nil {
-		return false, err
-	}
-	if len(result.Entries) == 1 {
-		return true, nil
-	} else if len(result.Entries) > 1 {
-		return false, fmt.Errorf("too many results returned searching for DN \"%s\"", ou)
-	}
-	return false, nil
+	return objectExists(client, searchBase, ou, "organizationalUnit")
 }
 
 func createOU(client *ldap.Conn, searchBase string, ou string, createParents bool) error {
-	if match, _ := regexp.MatchString(fmt.Sprintf(`.*, *%s$`, searchBase), ou); !match {
-		return fmt.Errorf("cannot create organizational unit \"%s\" outside search base \"%s\"", ou, searchBase)
+	searchBaseDN, _ := ldap.ParseDN(searchBase)
+	ouDN, _ := ldap.ParseDN(ou)
+
+	if !searchBaseDN.AncestorOf(ouDN) {
+		return fmt.Errorf("organizational unit \"%s\" is not an ancestor of search base \"%s\"", ou, searchBase)
 	}
 
 	exists, err := ouExists(client, searchBase, ou)
@@ -172,18 +163,4 @@ func deleteOU(client *ldap.Conn, searchBase string, ou string) error {
 		return err
 	}
 	return nil
-}
-
-func getParentObject(ou string) string {
-	if ou == "" {
-		log.Fatalf("unable to get parent object of empty string")
-	}
-
-	re := regexp.MustCompile(`^[^,]+, *(.*)$`)
-	matches := re.FindStringSubmatch(ou)
-	if matches == nil || len(matches) < 2 {
-		return ""
-	}
-	parent := matches[1]
-	return parent
 }

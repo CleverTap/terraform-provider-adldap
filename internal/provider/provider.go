@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
+	"strings"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -50,6 +52,7 @@ func New() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"adldap_service_principal":   resourceServicePrincipal(),
 			"adldap_organizational_unit": resourceOrganizationalUnit(),
+			"adldap_computer":            resourceComputer(),
 		},
 
 		ConfigureContextFunc: providerConfigure,
@@ -129,24 +132,14 @@ func ldapSearch(client *ldap.Conn, searchBase string, filter string, attributes 
 	return result, err
 }
 
-func getDN(client *ldap.Conn, searchBase string, samAccountName string) string {
-	filter := fmt.Sprintf("(&(objectClass=organizationalPerson)(samAccountName=%s))", samAccountName)
-	requestedAttributes := []string{"dn"}
-
-	result, err := ldapSearch(client, searchBase, filter, requestedAttributes)
-
+func getDN(client *ldap.Conn, searchBase string, samAccountName string) (string, error) {
+	result, err := getObject(client, searchBase, samAccountName, "*", []string{})
 	if err != nil {
-		log.Fatal(err)
-	}
-	if len(result.Entries) > 1 {
-		log.Fatalf("More than one DN returned for samAccountName %s.", samAccountName)
-	}
-	if len(result.Entries) == 0 {
-		log.Fatalf("No entry found for samAccountName %s.", samAccountName)
+		return "", err
 	}
 
-	dn := result.Entries[0].DN
-	return dn
+	dn := result.DN
+	return dn, nil
 }
 
 func detectSearchBase(client *ldap.Conn) (string, error) {
@@ -166,4 +159,97 @@ func detectSearchBase(client *ldap.Conn) (string, error) {
 	searchBase := result.Entries[0].GetAttributeValue("defaultNamingContext")
 
 	return searchBase, nil
+}
+
+func objectExists(client *ldap.Conn, searchBase string, objectName string, objectClass string) (bool, error) {
+	searchAttribute := "samAccountName"
+	if match, _ := regexp.MatchString(`.+=.+`, objectName); match {
+		searchAttribute = "distinguishedName"
+	}
+
+	filter := fmt.Sprintf("(&(objectClass=%s)(%s=%s))", objectClass, searchAttribute, objectName)
+
+	result, err := ldapSearch(client, searchBase, filter, []string{})
+	if err != nil {
+		return false, err
+	}
+	if len(result.Entries) == 1 {
+		return true, nil
+	}
+	if len(result.Entries) > 1 {
+		return false, fmt.Errorf("too many results (%d) returned for %s object \"%s\", expected 1", len(result.Entries), objectClass, objectName)
+	}
+	return false, nil
+}
+
+func getObject(client *ldap.Conn, searchBase string, objectName string, objectClass string, attributes []string) (*ldap.Entry, error) {
+	searchAttribute := "samAccountName"
+	if match, _ := regexp.MatchString(`.+=.+`, objectName); match {
+		searchAttribute = "distinguishedName"
+	}
+
+	filter := fmt.Sprintf("(&(objectClass=%s)(%s=%s))", objectClass, searchAttribute, objectName)
+
+	result, err := ldapSearch(client, searchBase, filter, attributes)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Entries) > 1 {
+		return nil, fmt.Errorf("too many results (%d) returned for %s object \"%s\", expected 1", len(result.Entries), objectClass, objectName)
+	}
+	if len(result.Entries) == 0 {
+		return nil, fmt.Errorf("no entry returned for %s object \"%s\"", objectClass, objectName)
+	}
+	return result.Entries[0], nil
+}
+
+func deleteObject(client *ldap.Conn, searchBase string, distinguishedName string, objectClass string) error {
+	exists, err := objectExists(client, searchBase, distinguishedName, objectClass)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		request := ldap.NewDelRequest(distinguishedName, nil)
+		err := client.Del(request)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getParentObject(ou string) string {
+	if ou == "" {
+		log.Fatalf("unable to get parent object of empty string")
+	}
+
+	dn, err := ldap.ParseDN(ou)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return joinRDNs(dn.RDNs[1:])
+}
+
+func getChildObject(ou string) string {
+	if ou == "" {
+		log.Fatalf("unable to get child object of empty string")
+	}
+
+	dn, err := ldap.ParseDN(ou)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return joinRDNs(dn.RDNs[:0])
+}
+
+func joinRDNs(rdns []*ldap.RelativeDN) string {
+	var segments []string
+	for _, rdn := range rdns {
+		segment := fmt.Sprintf("%s=%s", rdn.Attributes[0].Type, rdn.Attributes[0].Value)
+		segments = append(segments, segment)
+	}
+	return strings.Join(segments, ",")
 }

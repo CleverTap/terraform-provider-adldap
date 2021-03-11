@@ -134,13 +134,18 @@ func createSPN(client *ldap.Conn, searchBase string, spn string, samaccountname 
 		return fmt.Errorf("SPN already exists")
 	}
 
-	dn := getDN(client, searchBase, samaccountname)
+	dn, err := getDN(client, searchBase, samaccountname)
+	if err != nil {
+		return err
+	}
 	request := ldap.NewModifyRequest(dn, nil)
 	request.Add("ServicePrincipalName", []string{spn})
 
 	err = client.Modify(request)
-
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func deleteSPN(client *ldap.Conn, searchBase string, spn string, samaccountname string) error {
@@ -149,13 +154,17 @@ func deleteSPN(client *ldap.Conn, searchBase string, spn string, samaccountname 
 		return err
 	}
 	if exists {
-		dn := getDN(client, searchBase, samaccountname)
+		dn, err := getDN(client, searchBase, samaccountname)
+		if err != nil {
+			return err
+		}
 		request := ldap.NewModifyRequest(dn, nil)
 		request.Delete("ServicePrincipalName", []string{spn})
 
-		err := client.Modify(request)
-
-		return err
+		err = client.Modify(request)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

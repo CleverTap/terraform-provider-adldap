@@ -10,10 +10,11 @@
             "request": "launch",
             "mode": "test",
             // this assumes your workspace is the root of the repo
-            "program": "${fileDirname}",
+            "program": "${workspaceFolder}/internal/provider",
             "env": {
                 "TF_ACC": "1",
             },
+            "envFile": "${workspaceFolder}/testdata/debug.env",
             "args": [],
         },
         {

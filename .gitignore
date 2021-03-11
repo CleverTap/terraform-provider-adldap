@@ -1,1 +1,4 @@
 dist/
+
+# testdata usually has configuration specific to tester's Active Directory environment
+testdata/

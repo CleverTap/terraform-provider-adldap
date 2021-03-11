@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -16,9 +17,51 @@ var (
 	testOU = os.Getenv("ADLDAP_TEST_OU")
 )
 
+// Unit tests
+
+func TestGetParentOU(t *testing.T) {
+	cases := []struct {
+		ou     string
+		parent string
+	}{
+		{
+			ou:     "DC=example,DC=com",
+			parent: "DC=com",
+		},
+		{
+			ou:     "DC=com",
+			parent: "",
+		},
+		{
+			ou:     "OU=First Unit, DC=example, DC=com",
+			parent: "DC=example, DC=com",
+		},
+		{
+			ou:     "OU=First Unit,DC=example,DC=com",
+			parent: "DC=example,DC=com",
+		},
+		{
+			ou:     "OU=Second Unit,OU=First Unit,DC=example,DC=com",
+			parent: "OU=First Unit,DC=example,DC=com",
+		},
+	}
+
+	for _, c := range cases {
+		got := getParentObject(c.ou)
+		if got != c.parent {
+			t.Fatalf("Error matching output and expected for \"%s\": got %s, expected %s", c.ou, got, c.parent)
+		}
+	}
+}
+
+// Acceptance tests
+
 func TestAccOrganizationalUnit(t *testing.T) {
 	rInt := rand.New(rand.NewSource(time.Now().UnixNano())).Int()
-	uniqueOU := fmt.Sprintf(testOU, rInt)
+	if match, _ := regexp.MatchString(`.*%s.*`, testOU); match {
+		testOU = fmt.Sprintf(testOU, rInt)
+	}
+
 	if testOU == "" {
 		t.Fatalf("ADLDAP_TEST_OU environment variable must be set for acceptance tests to function.")
 	}
@@ -28,14 +71,14 @@ func TestAccOrganizationalUnit(t *testing.T) {
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOrganizationalUnit(uniqueOU),
+				Config: testAccOrganizationalUnit(testOU),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
-					resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", uniqueOU),
+					resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU),
 				),
 			},
 		},
-		CheckDestroy: testAccOrganizationalUnitDestroyed(uniqueOU),
+		CheckDestroy: testAccOrganizationalUnitDestroyed(testOU),
 	})
 }
 
@@ -70,6 +113,7 @@ func testAccOrganizationalUnit(ou string) string {
 	return fmt.Sprintf(`
 resource "adldap_organizational_unit" "testou" {
   distinguished_name = "%s"
+  create_parents = true
 }`, ou)
 }
 

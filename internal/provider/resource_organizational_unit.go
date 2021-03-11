@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/go-ldap/ldap/v3"
@@ -30,6 +31,12 @@ func resourceOrganizationalUnit() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"create_parents": {
+				Type:     schema.TypeBool,
+				Default:  false,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -40,8 +47,9 @@ func resourceOrganizationalUnitCreate(ctx context.Context, d *schema.ResourceDat
 	client := meta.(Meta).client
 	searchBase := meta.(Meta).searchBase
 	dn := d.Get("distinguished_name").(string)
+	createParents := d.Get("create_parents").(bool)
 
-	err := createOU(client, searchBase, dn)
+	err := createOU(client, searchBase, dn, createParents)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -67,7 +75,7 @@ func resourceOrganizationalUnitRead(ctx context.Context, d *schema.ResourceData,
 	if exists {
 		d.SetId(dn)
 	} else {
-		return diag.Errorf("OU \"%s\" does not exist.  Unable to import.", dn)
+		return diag.Errorf("unable to import non-existent organizational unit \"%s\"", dn)
 	}
 
 	return diags
@@ -98,17 +106,30 @@ func ouExists(client *ldap.Conn, searchBase string, ou string) (bool, error) {
 	}
 	if len(result.Entries) == 1 {
 		return true, nil
+	} else if len(result.Entries) > 1 {
+		return false, fmt.Errorf("too many results returned searching for DN \"%s\"", ou)
 	}
 	return false, nil
 }
 
-func createOU(client *ldap.Conn, searchBase string, ou string) error {
+func createOU(client *ldap.Conn, searchBase string, ou string, createParents bool) error {
+	if match, _ := regexp.MatchString(fmt.Sprintf(`.*, *%s$`, searchBase), ou); !match {
+		return fmt.Errorf("cannot create OU \"%s\" outside search base \"%s\"", ou, searchBase)
+	}
+
 	exists, err := ouExists(client, searchBase, ou)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return fmt.Errorf("OU already exists")
+		return fmt.Errorf("organizational unit \"%s\" already exists", ou)
+	}
+
+	if createParents {
+		err := createParentOUs(client, searchBase, ou)
+		if err != nil {
+			return err
+		}
 	}
 
 	match := ouRegexp.FindStringSubmatch(ou)[1]
@@ -119,6 +140,34 @@ func createOU(client *ldap.Conn, searchBase string, ou string) error {
 	err = client.Add(request)
 
 	return err
+}
+
+func createParentOUs(client *ldap.Conn, searchBase string, ou string) error {
+	parentOU := getParentObject(ou)
+
+	if parentOU != searchBase {
+		match, err := regexp.MatchString(`(?i)^ou=`, ou)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if match {
+			parentExists, err := ouExists(client, searchBase, parentOU)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if !parentExists {
+				err := createOU(client, searchBase, parentOU, true)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			log.Printf("not creating non-organizational-unit object \"%s\"", parentOU)
+		}
+	} else {
+		log.Printf("not creating search base organizational unit")
+	}
+	return nil
 }
 
 func deleteOU(client *ldap.Conn, searchBase string, ou string) error {
@@ -133,4 +182,18 @@ func deleteOU(client *ldap.Conn, searchBase string, ou string) error {
 		return err
 	}
 	return nil
+}
+
+func getParentObject(ou string) string {
+	if ou == "" {
+		log.Fatalf("unable to get parent object of empty string")
+	}
+
+	re := regexp.MustCompile(`^[^,]+, *(.*)$`)
+	matches := re.FindStringSubmatch(ou)
+	if matches == nil || len(matches) < 2 {
+		return ""
+	}
+	parent := matches[1]
+	return parent
 }

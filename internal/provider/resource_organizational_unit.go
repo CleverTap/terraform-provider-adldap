@@ -114,7 +114,7 @@ func ouExists(client *ldap.Conn, searchBase string, ou string) (bool, error) {
 
 func createOU(client *ldap.Conn, searchBase string, ou string, createParents bool) error {
 	if match, _ := regexp.MatchString(fmt.Sprintf(`.*, *%s$`, searchBase), ou); !match {
-		return fmt.Errorf("cannot create OU \"%s\" outside search base \"%s\"", ou, searchBase)
+		return fmt.Errorf("cannot create organizational unit \"%s\" outside search base \"%s\"", ou, searchBase)
 	}
 
 	exists, err := ouExists(client, searchBase, ou)
@@ -125,24 +125,6 @@ func createOU(client *ldap.Conn, searchBase string, ou string, createParents boo
 		return fmt.Errorf("organizational unit \"%s\" already exists", ou)
 	}
 
-	if createParents {
-		err := createParentOUs(client, searchBase, ou)
-		if err != nil {
-			return err
-		}
-	}
-
-	match := ouRegexp.FindStringSubmatch(ou)[1]
-
-	request := ldap.NewAddRequest(ou, nil)
-	request.Attribute("objectClass", []string{"organizationalUnit"})
-	request.Attribute("ou", []string{match})
-	err = client.Add(request)
-
-	return err
-}
-
-func createParentOUs(client *ldap.Conn, searchBase string, ou string) error {
 	parentOU := getParentObject(ou)
 
 	if parentOU != searchBase {
@@ -156,18 +138,26 @@ func createParentOUs(client *ldap.Conn, searchBase string, ou string) error {
 				log.Fatal(err)
 			}
 			if !parentExists {
-				err := createOU(client, searchBase, parentOU, true)
-				if err != nil {
-					return err
+				if createParents {
+					err := createOU(client, searchBase, parentOU, true)
+					if err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("parent for organizational unit \"%s\" does not exist", ou)
 				}
 			}
-		} else {
-			log.Printf("not creating non-organizational-unit object \"%s\"", parentOU)
 		}
-	} else {
-		log.Printf("not creating search base organizational unit")
 	}
-	return nil
+
+	ouCN := ouRegexp.FindStringSubmatch(ou)[1]
+
+	request := ldap.NewAddRequest(ou, nil)
+	request.Attribute("objectClass", []string{"organizationalUnit"})
+	request.Attribute("ou", []string{ouCN})
+	err = client.Add(request)
+
+	return err
 }
 
 func deleteOU(client *ldap.Conn, searchBase string, ou string) error {

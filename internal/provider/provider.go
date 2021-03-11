@@ -242,7 +242,7 @@ func getChildObject(ou string) string {
 		log.Fatal(err)
 	}
 
-	return joinRDNs(dn.RDNs[:0])
+	return joinRDNs(dn.RDNs[:1])
 }
 
 func joinRDNs(rdns []*ldap.RelativeDN) string {

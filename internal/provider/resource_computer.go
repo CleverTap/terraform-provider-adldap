@@ -72,31 +72,17 @@ func resourceComputerRead(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceComputerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(Meta).client
 	searchBase := meta.(Meta).searchBase
-	attributes := []string{}
+	name := d.Id()
+	if d.HasChange("organizational_unit") {
+		newOU := d.Get("organizational_unit").(string)
 
-	newOU := d.Get("organizational_unit").(string)
-
-	// Use the samAccountName as the resource ID
-	entry, err := getComputerObject(client, searchBase, d.Id(), attributes)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	dn := entry.DN
-
-	ou := getParentObject(dn)
-	if ou != newOU {
-		request := ldap.NewModifyDNRequest(dn, getChildObject(dn), true, newOU)
-		err := client.ModifyDN(request)
+		err := moveComputerObject(client, searchBase, name, newOU)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
-	// use the meta value to retrieve your client from the provider configure method
-	// client := meta.(*apiClient)
-
-	return diag.Errorf("not implemented")
+	return nil
 }
 
 func resourceComputerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -147,8 +133,45 @@ func getComputerObject(client *ldap.Conn, searchBase string, samaccountname stri
 	return result, nil
 }
 
-func deleteComputerObject(client *ldap.Conn, searchBase string, samaccountname string) error {
+func moveComputerObject(client *ldap.Conn, searchBase string, samaccountname string, newOU string) error {
+	newOUExists, err := ouExists(client, searchBase, newOU)
+	if err != nil {
+		return err
+	}
+	if !newOUExists {
+		return fmt.Errorf("cannot move computer %s to non-existent organization unit \"%s\"", samaccountname, newOU)
+	}
 
+	entry, err := getComputerObject(client, searchBase, samaccountname, []string{})
+	if err != nil {
+		return err
+	}
+
+	dn := entry.DN
+
+	ou := getParentObject(dn)
+	ouDN, err := ldap.ParseDN(ou)
+	if err != nil {
+		return err
+	}
+
+	newOUDN, err := ldap.ParseDN(newOU)
+	if err != nil {
+		return err
+	}
+
+	if !ouDN.Equal(newOUDN) {
+		request := ldap.NewModifyDNRequest(dn, getChildObject(dn), true, newOU)
+		err := client.ModifyDN(request)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func deleteComputerObject(client *ldap.Conn, searchBase string, samaccountname string) error {
 	entry, err := getComputerObject(client, searchBase, samaccountname, []string{})
 	if err != nil {
 		return err

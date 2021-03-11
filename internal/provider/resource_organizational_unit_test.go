@@ -11,45 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-// Unit tests
-
-func TestGetParentOU(t *testing.T) {
-	cases := []struct {
-		ou     string
-		parent string
-	}{
-		{
-			ou:     "DC=example,DC=com",
-			parent: "DC=com",
-		},
-		{
-			ou:     "DC=com",
-			parent: "",
-		},
-		{
-			ou:     "OU=First Unit, DC=example, DC=com",
-			parent: "DC=example,DC=com",
-		},
-		{
-			ou:     "OU=First Unit,DC=example,DC=com",
-			parent: "DC=example,DC=com",
-		},
-		{
-			ou:     "OU=Second Unit,OU=First Unit,DC=example,DC=com",
-			parent: "OU=First Unit,DC=example,DC=com",
-		},
-	}
-
-	for _, c := range cases {
-		got := getParentObject(c.ou)
-		if got != c.parent {
-			t.Fatalf("Error matching output and expected for \"%s\": got %s, expected %s", c.ou, got, c.parent)
-		}
-	}
-}
-
-// Acceptance tests
-
 func TestAccOrganizationalUnit(t *testing.T) {
 	testOU := fmt.Sprintf("OU=Terraform Acceptance Test %d,%s", rand.New(rand.NewSource(time.Now().UnixNano())).Int(), testAccProviderMeta.searchBase)
 

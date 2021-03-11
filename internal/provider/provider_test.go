@@ -40,6 +40,84 @@ func init() {
 	}
 }
 
+// Unit tests
+
+func TestGetParentObject(t *testing.T) {
+	cases := []struct {
+		ou     string
+		parent string
+	}{
+		{
+			ou:     "DC=example,DC=com",
+			parent: "DC=com",
+		},
+		{
+			ou:     "CN=Some computer,DC=example,DC=com",
+			parent: "DC=example,DC=com",
+		},
+		{
+			ou:     "DC=com",
+			parent: "",
+		},
+		{
+			ou:     "OU=First Unit, DC=example, DC=com",
+			parent: "DC=example,DC=com",
+		},
+		{
+			ou:     "OU=First Unit,DC=example,DC=com",
+			parent: "DC=example,DC=com",
+		},
+		{
+			ou:     "OU=Second Unit,OU=First Unit,DC=example,DC=com",
+			parent: "OU=First Unit,DC=example,DC=com",
+		},
+	}
+
+	for _, c := range cases {
+		got := getParentObject(c.ou)
+		if got != c.parent {
+			t.Fatalf("Error matching output and expected for \"%s\": got %s, expected %s", c.ou, got, c.parent)
+		}
+	}
+}
+
+func TestGetChildObject(t *testing.T) {
+	cases := []struct {
+		ou    string
+		child string
+	}{
+		{
+			ou:    "CN=Some Computer,DC=example,DC=com",
+			child: "CN=Some Computer",
+		},
+		{
+			ou:    "DC=com",
+			child: "DC=com",
+		},
+		{
+			ou:    "OU=First Unit, DC=example, DC=com",
+			child: "OU=First Unit",
+		},
+		{
+			ou:    "OU=First Unit,DC=example,DC=com",
+			child: "OU=First Unit",
+		},
+		{
+			ou:    "OU=Second Unit,OU=First Unit,DC=example,DC=com",
+			child: "OU=Second Unit",
+		},
+	}
+
+	for _, c := range cases {
+		got := getChildObject(c.ou)
+		if got != c.child {
+			t.Fatalf("Error matching output and expected for \"%s\": got %s, expected %s", c.ou, got, c.child)
+		}
+	}
+}
+
+// Acceptance tests
+
 func TestAccProvider(t *testing.T) {
 	if err := New().InternalValidate(); err != nil {
 		t.Fatalf("err: %s", err)

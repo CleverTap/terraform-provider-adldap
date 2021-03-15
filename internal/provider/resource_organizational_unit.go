@@ -19,10 +19,9 @@ func resourceOrganizationalUnit() *schema.Resource {
 
 		CreateContext: resourceOrganizationalUnitCreate,
 		ReadContext:   resourceOrganizationalUnitRead,
-		// UpdateContext: resourceOrganizationalUnitUpdate,
 		DeleteContext: resourceOrganizationalUnitDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{

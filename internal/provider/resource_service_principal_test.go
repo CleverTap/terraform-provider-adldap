@@ -64,14 +64,18 @@ func TestSpnFormatValid(t *testing.T) {
 
 // Acceptance tests
 
-func TestAccGetDN(t *testing.T) {
-	// Requires local test data to pass
+//func TestAccGetDN(t *testing.T) {
+// Requires local test data to pass
+// t.Skip()
 
-	// got := getDN(testAccProviderMeta.client, testAccProviderMeta.searchBase, testAccount)
-	// if got != testAccountDN {
-	// 	t.Errorf("getDN failed: got \"%s\" expected \"%s\".", got, testAccountDN)
-	// }
-}
+// got, err := getDN(testAccProviderMeta.client, testAccProviderMeta.searchBase, testAccount)
+// if err != nil {
+// 	t.Error(err)
+// }
+// if got != testAccountDN {
+// 	t.Errorf("getDN failed: got \"%s\" expected \"%s\".", got, testAccountDN)
+// }
+//}
 
 func TestAccSpnExists(t *testing.T) {
 	// Needs local data for positive test cases
@@ -162,15 +166,6 @@ func testAccCheckServicePrincipalExists(resourceName string) resource.TestCheckF
 			return fmt.Errorf("SPN %s not found", rs.Primary.Attributes["spn"])
 		}
 
-		return nil
-	}
-}
-
-func testAccCheckServicePrincipalAttributes(rInt int) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		// if team.Name != "team-test" {
-		// 	return fmt.Errorf("Bad name: %s", team.Name)
-		// }
 		return nil
 	}
 }

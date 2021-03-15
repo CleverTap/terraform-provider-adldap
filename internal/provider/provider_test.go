@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -149,23 +150,24 @@ func testProviderConfigure(ldapURL string, searchBase string, bindAccount string
 	var err error
 	// ignoreSsl := d.Get("ignore_ssl").(bool)
 
+	var meta Meta
+	meta.searchBase = searchBase
+
 	if ldapURL == "" {
 		log.Fatalf("No LDAP URL provided to test provider.")
 	}
 
 	conn, err := dialLdap(ldapURL)
 	if err != nil {
-		log.Fatalf("Error on LDAP dial: %s", err)
+		return meta, fmt.Errorf("Error on LDAP dial: %s", err)
 	}
 
 	err = bindLdap(conn, bindAccount, bindPassword)
 	if err != nil {
-		log.Fatalf("Error on bind: %s", err)
+		return meta, fmt.Errorf("Error on bind: %s", err)
 	}
 
-	meta := Meta{
-		client:     conn,
-		searchBase: searchBase,
-	}
+	meta.client = conn
+
 	return meta, err
 }

@@ -19,6 +19,9 @@ func resourceComputer() *schema.Resource {
 		ReadContext:   resourceComputerRead,
 		UpdateContext: resourceComputerUpdate,
 		DeleteContext: resourceComputerDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -134,38 +137,9 @@ func getComputerObject(client *ldap.Conn, searchBase string, samaccountname stri
 }
 
 func moveComputerObject(client *ldap.Conn, searchBase string, samaccountname string, newOU string) error {
-	newOUExists, err := ouExists(client, searchBase, newOU)
+	err := moveObject(client, searchBase, samaccountname, "computer", newOU)
 	if err != nil {
 		return err
-	}
-	if !newOUExists {
-		return fmt.Errorf("cannot move computer %s to non-existent organization unit \"%s\"", samaccountname, newOU)
-	}
-
-	entry, err := getComputerObject(client, searchBase, samaccountname, []string{})
-	if err != nil {
-		return err
-	}
-
-	dn := entry.DN
-
-	ou := getParentObject(dn)
-	ouDN, err := ldap.ParseDN(ou)
-	if err != nil {
-		return err
-	}
-
-	newOUDN, err := ldap.ParseDN(newOU)
-	if err != nil {
-		return err
-	}
-
-	if !ouDN.Equal(newOUDN) {
-		request := ldap.NewModifyDNRequest(dn, getChildObject(dn), true, newOU)
-		err := client.ModifyDN(request)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

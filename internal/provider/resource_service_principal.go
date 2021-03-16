@@ -43,12 +43,11 @@ func resourceServicePrincipal() *schema.Resource {
 func resourceServicePrincipalCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
+	client := meta.(*LdapClient)
 	spn := d.Get("spn").(string)
 	samaccountname := d.Get("samaccountname").(string)
-	searchBase := meta.(Meta).searchBase
 
-	err := createSPN(client, searchBase, spn, samaccountname)
+	err := createSPN(client, spn, samaccountname)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -63,8 +62,7 @@ func resourceServicePrincipalCreate(ctx context.Context, d *schema.ResourceData,
 func resourceServicePrincipalRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
-	searchBase := meta.(Meta).searchBase
+	client := meta.(*LdapClient)
 
 	spnStrings := strings.Split(d.Id(), "---")
 	if len(spnStrings) != 2 {
@@ -79,7 +77,7 @@ func resourceServicePrincipalRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	id := fmt.Sprintf("%s---%s", spn, samaccountname)
-	exists, err := spnExists(client, searchBase, samaccountname, spn)
+	exists, err := spnExists(client, samaccountname, spn)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -98,12 +96,11 @@ func resourceServicePrincipalRead(ctx context.Context, d *schema.ResourceData, m
 func resourceServicePrincipalDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
+	client := meta.(*LdapClient)
 	spn := d.Get("spn").(string)
 	samaccountname := d.Get("samaccountname").(string)
-	searchBase := meta.(Meta).searchBase
 
-	err := deleteSPN(client, searchBase, spn, samaccountname)
+	err := deleteSPN(client, spn, samaccountname)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -111,11 +108,11 @@ func resourceServicePrincipalDelete(ctx context.Context, d *schema.ResourceData,
 	return diags
 }
 
-func spnExists(client *ldap.Conn, searchBase string, samaccountname string, spn string) (bool, error) {
+func spnExists(client *LdapClient, samaccountname string, spn string) (bool, error) {
 	filter := fmt.Sprintf("(&(objectClass=organizationalPerson)(samAccountName=%s)(servicePrincipalName=%s))", samaccountname, spn)
 	requestedAttributes := []string{"servicePrincipalName"}
 
-	result, err := ldapSearch(client, searchBase, filter, requestedAttributes)
+	result, err := client.LdapSearch(filter, requestedAttributes)
 	if err != nil {
 		return false, err
 	}
@@ -125,8 +122,8 @@ func spnExists(client *ldap.Conn, searchBase string, samaccountname string, spn 
 	return false, nil
 }
 
-func createSPN(client *ldap.Conn, searchBase string, spn string, samaccountname string) error {
-	exists, err := spnExists(client, searchBase, samaccountname, spn)
+func createSPN(client *LdapClient, spn string, samaccountname string) error {
+	exists, err := spnExists(client, samaccountname, spn)
 	if err != nil {
 		return err
 	}
@@ -134,34 +131,34 @@ func createSPN(client *ldap.Conn, searchBase string, spn string, samaccountname 
 		return fmt.Errorf("SPN already exists")
 	}
 
-	dn, err := getDN(client, searchBase, samaccountname)
+	dn, err := client.GetDN(samaccountname)
 	if err != nil {
 		return err
 	}
 	request := ldap.NewModifyRequest(dn, nil)
 	request.Add("ServicePrincipalName", []string{spn})
 
-	err = client.Modify(request)
+	err = client.conn.Modify(request)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func deleteSPN(client *ldap.Conn, searchBase string, spn string, samaccountname string) error {
-	exists, err := spnExists(client, searchBase, samaccountname, spn)
+func deleteSPN(client *LdapClient, spn string, samaccountname string) error {
+	exists, err := spnExists(client, samaccountname, spn)
 	if err != nil {
 		return err
 	}
 	if exists {
-		dn, err := getDN(client, searchBase, samaccountname)
+		dn, err := client.GetDN(samaccountname)
 		if err != nil {
 			return err
 		}
 		request := ldap.NewModifyRequest(dn, nil)
 		request.Delete("ServicePrincipalName", []string{spn})
 
-		err = client.Modify(request)
+		err = client.conn.Modify(request)
 		if err != nil {
 			return err
 		}

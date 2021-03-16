@@ -33,7 +33,7 @@ func New() *schema.Provider {
 			"search_base": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_SEARCH_BASE", "UNSET"),
+				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_SEARCH_BASE", ""),
 				Description: descriptions["search_base"],
 			},
 		},
@@ -56,7 +56,7 @@ func init() {
 		"url":           "The URL of the LDAP server, prefixed with ldap:// or ldaps://",
 		"bind_account":  "The full DN or samAccountName used to bind to the directory",
 		"bind_password": "The password for the bind account",
-		"search_base":   "The base DN to use for all LDAP searches",
+		"search_base":   "The base DN to use for all LDAP searches.  Default is to autodetect default context.",
 	}
 }
 
@@ -66,15 +66,12 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 	bindPassword := d.Get("bind_password").(string)
 	searchBase := d.Get("search_base").(string)
 
-	conn, searchBase, err := newClient(ldapURL, bindAccount, bindPassword, searchBase)
+	client := new(LdapClient)
+
+	err := client.NewClient(ldapURL, bindAccount, bindPassword, searchBase)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
 
-	meta := Meta{
-		client:     conn,
-		searchBase: searchBase,
-	}
-
-	return meta, nil
+	return client, nil
 }

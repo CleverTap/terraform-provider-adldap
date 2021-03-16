@@ -2,16 +2,10 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"regexp"
 
-	"github.com/go-ldap/ldap/v3"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-
-var ouRegexp = regexp.MustCompile(`(?i)^OU=([^,]+).*$`)
 
 func resourceOrganizationalUnit() *schema.Resource {
 	return &schema.Resource{
@@ -19,6 +13,7 @@ func resourceOrganizationalUnit() *schema.Resource {
 
 		CreateContext: resourceOrganizationalUnitCreate,
 		ReadContext:   resourceOrganizationalUnitRead,
+		UpdateContext: resourceOrganizationalUnitUpdate,
 		DeleteContext: resourceOrganizationalUnitDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -28,13 +23,11 @@ func resourceOrganizationalUnit() *schema.Resource {
 			"distinguished_name": {
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"create_parents": {
 				Type:     schema.TypeBool,
 				Default:  false,
 				Optional: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -43,14 +36,21 @@ func resourceOrganizationalUnit() *schema.Resource {
 func resourceOrganizationalUnitCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
-	searchBase := meta.(Meta).searchBase
+	client := meta.(*LdapClient)
+
 	dn := d.Get("distinguished_name").(string)
 	createParents := d.Get("create_parents").(bool)
 
-	err := createOU(client, searchBase, dn, createParents)
-	if err != nil {
-		return diag.FromErr(err)
+	if createParents {
+		_, err := client.CreateOUAndParents(dn)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	} else {
+		_, err := client.CreateOU(dn)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	d.SetId(dn)
@@ -62,11 +62,10 @@ func resourceOrganizationalUnitCreate(ctx context.Context, d *schema.ResourceDat
 func resourceOrganizationalUnitRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
-	searchBase := meta.(Meta).searchBase
+	client := meta.(*LdapClient)
 
 	dn := d.Id()
-	exists, err := ouExists(client, searchBase, dn)
+	exists, err := client.ObjectExists(dn, "organizationalUnit")
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -80,86 +79,43 @@ func resourceOrganizationalUnitRead(ctx context.Context, d *schema.ResourceData,
 	return diags
 }
 
-func resourceOrganizationalUnitDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceOrganizationalUnitUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	client := meta.(Meta).client
-	searchBase := meta.(Meta).searchBase
-	ou := d.Get("distinguished_name").(string)
+	client := meta.(*LdapClient)
+	dn := d.Id()
 
-	err := deleteOU(client, searchBase, ou)
-	if err != nil {
-		return diag.FromErr(err)
+	if d.HasChange("distinguished_name") {
+		newDN := d.Get("distinguished_name").(string)
+
+		ou, err := client.GetOU(dn)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		ou.Rename(newDN)
+
+		d.SetId(newDN)
 	}
 
 	return diags
 }
 
-func ouExists(client *ldap.Conn, searchBase string, ou string) (bool, error) {
-	return objectExists(client, searchBase, ou, "organizationalUnit")
-}
+func resourceOrganizationalUnitDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 
-func createOU(client *ldap.Conn, searchBase string, ou string, createParents bool) error {
-	searchBaseDN, _ := ldap.ParseDN(searchBase)
-	ouDN, _ := ldap.ParseDN(ou)
+	client := meta.(*LdapClient)
+	ouDN := d.Get("distinguished_name").(string)
 
-	if !searchBaseDN.AncestorOf(ouDN) {
-		return fmt.Errorf("organizational unit \"%s\" is not an ancestor of search base \"%s\"", ou, searchBase)
-	}
-
-	exists, err := ouExists(client, searchBase, ou)
+	ou, err := client.GetOU(ouDN)
 	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("organizational unit \"%s\" already exists", ou)
+		return diag.FromErr(err)
 	}
 
-	parentOU := getParentObject(ou)
-
-	if parentOU != searchBase {
-		match, err := regexp.MatchString(`(?i)^ou=`, ou)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if match {
-			parentExists, err := ouExists(client, searchBase, parentOU)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if !parentExists {
-				if createParents {
-					err := createOU(client, searchBase, parentOU, true)
-					if err != nil {
-						return err
-					}
-				} else {
-					return fmt.Errorf("parent for organizational unit \"%s\" does not exist", ou)
-				}
-			}
-		}
-	}
-
-	ouCN := ouRegexp.FindStringSubmatch(ou)[1]
-
-	request := ldap.NewAddRequest(ou, nil)
-	request.Attribute("objectClass", []string{"organizationalUnit"})
-	request.Attribute("ou", []string{ouCN})
-	err = client.Add(request)
-
-	return err
-}
-
-func deleteOU(client *ldap.Conn, searchBase string, ou string) error {
-	exists, err := ouExists(client, searchBase, ou)
+	err = ou.Delete()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
-	if exists {
-		request := ldap.NewDelRequest(ou, nil)
-		err := client.Del(request)
 
-		return err
-	}
-	return nil
+	return diags
 }

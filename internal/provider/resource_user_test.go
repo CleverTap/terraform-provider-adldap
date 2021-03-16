@@ -29,15 +29,18 @@ func init() {
 
 func TestAccResourceUser(t *testing.T) {
 	testUserPassword, err := password.Generate(9, 1, 1, false, false)
-	testUserPassword = strings.ReplaceAll(testUserPassword, "\\", "\\\\")
-	testUserPassword = strings.ReplaceAll(testUserPassword, "\"", "\\\"")
-	testUserPassword2, err := password.Generate(9, 1, 1, false, false)
-	testUserPassword2 = strings.ReplaceAll(testUserPassword2, "\\", "\\\\")
-	testUserPassword2 = strings.ReplaceAll(testUserPassword2, "\"", "\\\"")
-
 	if err != nil {
 		t.Error(err)
 	}
+	testUserPassword = strings.ReplaceAll(testUserPassword, "\\", "\\\\")
+	testUserPassword = strings.ReplaceAll(testUserPassword, "\"", "\\\"")
+
+	testUserPassword2, err := password.Generate(9, 1, 1, false, false)
+	if err != nil {
+		t.Error(err)
+	}
+	testUserPassword2 = strings.ReplaceAll(testUserPassword2, "\\", "\\\\")
+	testUserPassword2 = strings.ReplaceAll(testUserPassword2, "\"", "\\\"")
 
 	resource.UnitTest(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -88,7 +91,7 @@ resource "adldap_user" "foo" {
 
 func testAccUserBind(samaccountname string, password string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		dn, err := getDN(testAccProviderMeta.client, testAccProviderMeta.searchBase, samaccountname)
+		dn, err := testAccProviderMeta.GetDN(samaccountname)
 		if err != nil {
 			return err
 		}

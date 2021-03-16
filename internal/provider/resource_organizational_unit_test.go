@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func TestAccOrganizationalUnit(t *testing.T) {
+func TestAccResourceOrganizationalUnit(t *testing.T) {
 	testOU := fmt.Sprintf("OU=Terraform Acceptance Test %d,%s", rand.New(rand.NewSource(time.Now().UnixNano())).Int(), testAccProviderMeta.searchBase)
 
 	resource.Test(t, resource.TestCase{
@@ -25,6 +25,14 @@ func TestAccOrganizationalUnit(t *testing.T) {
 					resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU),
 				),
 			},
+			// TODO Test rename doesn't delete all containers
+			// {
+			// 	Config: testAccOrganizationalUnit(testOU),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
+			// 		resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU),
+			// 	),
+			// },
 		},
 		CheckDestroy: testAccOrganizationalUnitDestroyed(testOU),
 	})
@@ -45,7 +53,7 @@ func TestAccOuExists(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got, err := ouExists(testAccProviderMeta.client, testAccProviderMeta.searchBase, c.ou)
+		got, err := testAccProviderMeta.ObjectExists(c.ou, "organizationalUnit")
 		if err != nil {
 			t.Error(err)
 		}
@@ -67,7 +75,10 @@ resource "adldap_organizational_unit" "testou" {
 
 func testAccCheckOrganizationalUnitExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		client := testAccProviderMeta.client
+		client := testAccProviderMeta.conn
+		if client == nil {
+			return fmt.Errorf("test provider is not connected")
+		}
 
 		rs := s.RootModule().Resources[resourceName]
 		if rs == nil {
@@ -100,7 +111,7 @@ func testAccCheckOrganizationalUnitExists(resourceName string) resource.TestChec
 
 func testAccOrganizationalUnitDestroyed(ou string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		exists, err := ouExists(testAccProviderMeta.client, testAccProviderMeta.searchBase, ou)
+		exists, err := testAccProviderMeta.ObjectExists(ou, "organizationalUnit")
 		if err != nil {
 			return err
 		}

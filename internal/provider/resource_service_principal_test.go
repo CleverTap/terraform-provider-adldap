@@ -68,7 +68,7 @@ func TestSpnFormatValid(t *testing.T) {
 // Requires local test data to pass
 // t.Skip()
 
-// got, err := getDN(testAccProviderMeta.client, testAccProviderMeta.searchBase, testAccount)
+// got, err := getDN(testAccProviderMeta.conn, testAccount)
 // if err != nil {
 // 	t.Error(err)
 // }
@@ -93,7 +93,7 @@ func TestAccSpnExists(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got, err := spnExists(testAccProviderMeta.client, testAccProviderMeta.searchBase, c.samaccountname, c.spn)
+		got, err := spnExists(testAccProviderMeta, c.samaccountname, c.spn)
 		if err != nil {
 			t.Error(err)
 		}
@@ -139,7 +139,7 @@ resource "adldap_service_principal" "testspn" {
 
 func testAccCheckServicePrincipalExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		client := testAccProviderMeta.client
+		client := testAccProviderMeta.conn
 
 		rs := s.RootModule().Resources[resourceName]
 		if rs == nil {

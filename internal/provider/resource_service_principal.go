@@ -3,15 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/go-ldap/ldap/v3"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-
-const validSpnRegex = "^[\\w\\d]+/(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\\-]*[A-Za-z0-9])(:\\d{1,5})?$"
 
 func resourceServicePrincipal() *schema.Resource {
 	return &schema.Resource{
@@ -45,16 +41,21 @@ func resourceServicePrincipalCreate(ctx context.Context, d *schema.ResourceData,
 
 	client := meta.(*LdapClient)
 	spn := d.Get("spn").(string)
-	samaccountname := d.Get("samaccountname").(string)
+	sAMAccountName := d.Get("samaccountname").(string)
 
-	err := createSPN(client, spn, samaccountname)
+	account, err := client.GetAccountBySAMAccountName(sAMAccountName, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId(fmt.Sprintf("%s---%s", spn, samaccountname))
+	err = account.AddServicePrincipal(spn)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.SetId(fmt.Sprintf("%s---%s", spn, sAMAccountName))
 	d.Set("spn", spn)
-	d.Set("samaccountname", samaccountname)
+	d.Set("samaccountname", sAMAccountName)
 
 	return diags
 }
@@ -70,14 +71,16 @@ func resourceServicePrincipalRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	spn := spnStrings[0]
-	samaccountname := spnStrings[1]
+	sAMAccountName := spnStrings[1]
 
-	if !spnFormatValid(spn) {
-		return diag.Errorf("SPN must be of format \"service/host(:port)\".")
+	id := fmt.Sprintf("%s---%s", spn, sAMAccountName)
+
+	account, err := client.GetAccountBySAMAccountName(sAMAccountName, []string{"servicePrincipalName"})
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	id := fmt.Sprintf("%s---%s", spn, samaccountname)
-	exists, err := spnExists(client, samaccountname, spn)
+	exists, err := account.HasServicePrincipal(spn)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -85,7 +88,7 @@ func resourceServicePrincipalRead(ctx context.Context, d *schema.ResourceData, m
 	if exists {
 		d.SetId(id)
 		d.Set("spn", spn)
-		d.Set("samaccountname", samaccountname)
+		d.Set("samaccountname", sAMAccountName)
 	} else {
 		return diag.Errorf("SPN \"%s\" does not exist.  Unable to import.", spn)
 	}
@@ -98,78 +101,17 @@ func resourceServicePrincipalDelete(ctx context.Context, d *schema.ResourceData,
 
 	client := meta.(*LdapClient)
 	spn := d.Get("spn").(string)
-	samaccountname := d.Get("samaccountname").(string)
+	sAMAccountName := d.Get("samaccountname").(string)
 
-	err := deleteSPN(client, spn, samaccountname)
+	account, err := client.GetAccountBySAMAccountName(sAMAccountName, nil)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	err = account.RemoveServicePrincipal(spn)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	return diags
-}
-
-func spnExists(client *LdapClient, samaccountname string, spn string) (bool, error) {
-	filter := fmt.Sprintf("(&(objectClass=organizationalPerson)(samAccountName=%s)(servicePrincipalName=%s))", samaccountname, spn)
-	requestedAttributes := []string{"servicePrincipalName"}
-
-	result, err := client.LdapSearch(filter, requestedAttributes)
-	if err != nil {
-		return false, err
-	}
-	if len(result.Entries) == 1 {
-		return true, nil
-	}
-	return false, nil
-}
-
-func createSPN(client *LdapClient, spn string, samaccountname string) error {
-	exists, err := spnExists(client, samaccountname, spn)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("SPN already exists")
-	}
-
-	dn, err := client.GetDN(samaccountname)
-	if err != nil {
-		return err
-	}
-	request := ldap.NewModifyRequest(dn, nil)
-	request.Add("ServicePrincipalName", []string{spn})
-
-	err = client.conn.Modify(request)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func deleteSPN(client *LdapClient, spn string, samaccountname string) error {
-	exists, err := spnExists(client, samaccountname, spn)
-	if err != nil {
-		return err
-	}
-	if exists {
-		dn, err := client.GetDN(samaccountname)
-		if err != nil {
-			return err
-		}
-		request := ldap.NewModifyRequest(dn, nil)
-		request.Delete("ServicePrincipalName", []string{spn})
-
-		err = client.conn.Modify(request)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func spnFormatValid(spn string) bool {
-	valid, err := regexp.MatchString(validSpnRegex, spn)
-	if err != nil {
-		return false
-	}
-	return valid
 }

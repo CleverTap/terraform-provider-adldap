@@ -17,24 +17,18 @@ var (
 	rInt             = rand.New(rand.NewSource(time.Now().UnixNano())).Intn(999999)
 	testUser         = fmt.Sprintf("tfacctst-%d", rInt)
 	testUserFullName = fmt.Sprintf("Terraform acceptance testing-%d", rInt)
+	testUserPassword = fmt.Sprintf("tfacctst123!%d", rInt)
 	testUserOU       = os.Getenv("ADLDAP_TEST_USER_OU")
 	testUserOU2      = os.Getenv("ADLDAP_TEST_USER_OU2")
 )
 
 func init() {
 	if testUserOU == "" {
-		testUserOU = testAccProviderMeta.searchBase
+		testUserOU = testAccProviderMeta.SearchBase
 	}
 }
 
-func TestAccResourceUser(t *testing.T) {
-	testUserPassword, err := password.Generate(9, 1, 1, false, false)
-	if err != nil {
-		t.Error(err)
-	}
-	testUserPassword = strings.ReplaceAll(testUserPassword, "\\", "\\\\")
-	testUserPassword = strings.ReplaceAll(testUserPassword, "\"", "\\\"")
-
+func TestAccAdldapResourceUser(t *testing.T) {
 	testUserPassword2, err := password.Generate(9, 1, 1, false, false)
 	if err != nil {
 		t.Error(err)
@@ -47,38 +41,38 @@ func TestAccResourceUser(t *testing.T) {
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceUser(testUser, testUserPassword, testUserFullName, testUserOU),
+				Config: testAccAdldapResourceUser(testUser, testUserPassword, testUserFullName, testUserOU),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_user.foo", "samaccountname", testUser),
-					testAccUserBind(testUser, testUserPassword),
+					testAccAdldapUserBind(testUser, testUserPassword),
 				),
 			},
 			{
-				Config: testAccResourceUser(testUser, testUserPassword, testUserFullName, testUserOU2),
+				Config: testAccAdldapResourceUser(testUser, testUserPassword, testUserFullName, testUserOU2),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_user.foo", "organizational_unit", testUserOU2),
 				),
 			},
 			{
-				Config: testAccResourceUser(testUser, testUserPassword, testUserFullName+"-2", testUserOU2),
+				Config: testAccAdldapResourceUser(testUser, testUserPassword, testUserFullName+"-2", testUserOU2),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_user.foo", "name", testUserFullName+"-2"),
 				),
 			},
 			{
-				Config: testAccResourceUser(testUser, testUserPassword2, testUserFullName+"-2", testUserOU2),
+				Config: testAccAdldapResourceUser(testUser, testUserPassword2, testUserFullName+"-2", testUserOU2),
 				Check: resource.ComposeTestCheckFunc(
-					testAccUserBind(testUser, testUserPassword2),
+					testAccAdldapUserBind(testUser, testUserPassword2),
 				),
 			},
 		},
 	})
 }
 
-func testAccResourceUser(userName string, password string, fullName string, userOU string) string {
+func testAccAdldapResourceUser(userName string, password string, fullName string, userOU string) string {
 	return fmt.Sprintf(`
 resource "adldap_user" "foo" {
   samaccountname      = "%s"
@@ -89,7 +83,7 @@ resource "adldap_user" "foo" {
 `, userName, password, fullName, userOU)
 }
 
-func testAccUserBind(samaccountname string, password string) resource.TestCheckFunc {
+func testAccAdldapUserBind(samaccountname string, password string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		dn, err := testAccProviderMeta.GetDN(samaccountname)
 		if err != nil {

@@ -12,51 +12,40 @@ func New() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"url": {
+				Description: "The URL of the LDAP server, prefixed with ldap:// or ldaps://. Can be specified with the `ADLDAP_URL` environment variable.",
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_URL", nil),
-				Description: descriptions["url"],
 			},
 			"bind_account": {
+				Description: "The full DN or UPN used to bind to the directory. Can be specified with the `ADLDAP_BIND_ACCOUNT` environment variable.",
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_BIND_ACCOUNT", nil),
-				Description: descriptions["bind_account"],
 			},
 			"bind_password": {
+				Description: "The password for the bind account. Can be specified with the `ADLDAP_BIND_PASSWORD` environment variable.",
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_BIND_PASSWORD", nil),
-				Description: descriptions["bind_password"],
 			},
 			"search_base": {
+				Description: "The base DN to use for all LDAP searches. Can be specified with the `ADLDAP_SEARCH_BASE` environment variable.  Default is to autodetect default context.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_SEARCH_BASE", ""),
-				Description: descriptions["search_base"],
 			},
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"adldap_service_principal":   resourceServicePrincipal(),
-			"adldap_organizational_unit": resourceOrganizationalUnit(),
 			"adldap_computer":            resourceComputer(),
+			"adldap_organizational_unit": resourceOrganizationalUnit(),
+			"adldap_service_principal":   resourceServicePrincipal(),
 			"adldap_user":                resourceUser(),
 		},
 
 		ConfigureContextFunc: providerConfigure,
-	}
-}
-
-var descriptions map[string]string
-
-func init() {
-	descriptions = map[string]string{
-		"url":           "The URL of the LDAP server, prefixed with ldap:// or ldaps://",
-		"bind_account":  "The full DN or samAccountName used to bind to the directory",
-		"bind_password": "The password for the bind account",
-		"search_base":   "The base DN to use for all LDAP searches.  Default is to autodetect default context.",
 	}
 }
 
@@ -68,7 +57,7 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 
 	client := new(LdapClient)
 
-	err := client.NewClient(ldapURL, bindAccount, bindPassword, searchBase)
+	err := client.New(ldapURL, bindAccount, bindPassword, searchBase, false)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}

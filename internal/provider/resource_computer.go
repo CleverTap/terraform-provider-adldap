@@ -42,12 +42,13 @@ func resourceComputerCreate(ctx context.Context, d *schema.ResourceData, meta in
 	name := d.Get("name").(string)
 	ou := d.Get("organizational_unit").(string)
 
-	d.SetId(name)
-
 	_, err := client.CreateComputerAccount(name, ou, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	d.SetId(name)
+
 	return nil
 }
 
@@ -61,7 +62,8 @@ func resourceComputerRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.FromErr(err)
 	}
 
-	parent, err := getParentObject(account.ldapEntry.entry.DN)
+	ldapDN, err := NewLdapDN(account.DN)
+	parent := ldapDN.ParentDN()
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -76,14 +78,14 @@ func resourceComputerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(*LdapClient)
 	name := d.Id()
 	if d.HasChange("organizational_unit") {
-		newOU := d.Get("organizational_unit").(string)
+		_, newOU := d.GetChange("organizational_unit")
 
 		account, err := client.GetAccountBySAMAccountName(name, nil)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 
-		err = account.Move(newOU)
+		err = account.Move(newOU.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}

@@ -12,6 +12,13 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "goreleaser (snapshot)",
+            "type": "shell",
+            "command": "goreleaser --snapshot --skip-publish --rm-dist",
+            "problemMatcher": [],
+            "group": "build"
         }
     ]
 }

@@ -18,24 +18,24 @@ var (
 
 func init() {
 	if testComputerOU == "" {
-		testComputerOU = testAccProviderMeta.searchBase
+		testComputerOU = testAccProviderMeta.SearchBase
 	}
 }
 
-func TestAccResourceComputer(t *testing.T) {
+func TestAccAdldapResourceComputer(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccResourceComputer(testComputer, testComputerOU),
+				Config: testAccAdldapResourceComputer(testComputer, testComputerOU),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_computer.foo", "organizational_unit", testComputerOU),
 				),
 			},
 			{
-				Config: testAccResourceComputer(testComputer, testComputerOU2),
+				Config: testAccAdldapResourceComputer(testComputer, testComputerOU2),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_computer.foo", "organizational_unit", testComputerOU2),
@@ -45,7 +45,7 @@ func TestAccResourceComputer(t *testing.T) {
 	})
 }
 
-func testAccResourceComputer(computerName string, computerOU string) string {
+func testAccAdldapResourceComputer(computerName string, computerOU string) string {
 	return fmt.Sprintf(`
 resource "adldap_computer" "foo" {
   name                = "%s"

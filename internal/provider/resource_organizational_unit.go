@@ -86,16 +86,19 @@ func resourceOrganizationalUnitUpdate(ctx context.Context, d *schema.ResourceDat
 	dn := d.Id()
 
 	if d.HasChange("distinguished_name") {
-		newDN := d.Get("distinguished_name").(string)
+		_, newDN := d.GetChange("distinguished_name")
 
 		ou, err := client.GetOU(dn)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 
-		ou.Rename(newDN)
+		err = ou.Rename(newDN.(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
 
-		d.SetId(newDN)
+		d.SetId(newDN.(string))
 	}
 
 	return diags

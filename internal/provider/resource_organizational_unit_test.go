@@ -11,34 +11,36 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func TestAccResourceOrganizationalUnit(t *testing.T) {
-	testOU := fmt.Sprintf("OU=Terraform Acceptance Test %d,%s", rand.New(rand.NewSource(time.Now().UnixNano())).Int(), testAccProviderMeta.searchBase)
+func TestAccAdldapResourceOrganizationalUnit(t *testing.T) {
+	rInt := rand.New(rand.NewSource(time.Now().UnixNano())).Int()
+	searchBase := testAccProviderMeta.SearchBase
+	testOU := fmt.Sprintf("OU=Terraform Acceptance Test %d,%s", rInt, searchBase)
+	testOU2 := fmt.Sprintf("OU=Terraform Acceptance Test %d-step2,%s", rInt, searchBase)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOrganizationalUnit(testOU),
+				Config: testAccAdldapOrganizationalUnit(testOU),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
+					testAccAdldapCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
 					resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU),
 				),
 			},
-			// TODO Test rename doesn't delete all containers
-			// {
-			// 	Config: testAccOrganizationalUnit(testOU),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
-			// 		resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU),
-			// 	),
-			// },
+			{
+				Config: testAccAdldapOrganizationalUnit(testOU2),
+				Check: resource.ComposeTestCheckFunc(
+					testAccAdldapCheckOrganizationalUnitExists("adldap_organizational_unit.testou"),
+					resource.TestCheckResourceAttr("adldap_organizational_unit.testou", "distinguished_name", testOU2),
+				),
+			},
 		},
-		CheckDestroy: testAccOrganizationalUnitDestroyed(testOU),
+		CheckDestroy: testAccAdldapOrganizationalUnitDestroyed(testOU),
 	})
 }
 
-func TestAccOuExists(t *testing.T) {
+func TestAccAdldapOuExists(t *testing.T) {
 	// Needs local data for positive test cases
 
 	rInt := rand.New(rand.NewSource(time.Now().UnixNano())).Int()
@@ -65,7 +67,7 @@ func TestAccOuExists(t *testing.T) {
 
 // Support functions
 
-func testAccOrganizationalUnit(ou string) string {
+func testAccAdldapOrganizationalUnit(ou string) string {
 	return fmt.Sprintf(`
 resource "adldap_organizational_unit" "testou" {
   distinguished_name = "%s"
@@ -73,9 +75,9 @@ resource "adldap_organizational_unit" "testou" {
 }`, ou)
 }
 
-func testAccCheckOrganizationalUnitExists(resourceName string) resource.TestCheckFunc {
+func testAccAdldapCheckOrganizationalUnitExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		client := testAccProviderMeta.conn
+		client := testAccProviderMeta.Conn
 		if client == nil {
 			return fmt.Errorf("test provider is not connected")
 		}
@@ -89,7 +91,7 @@ func testAccCheckOrganizationalUnitExists(resourceName string) resource.TestChec
 		}
 
 		searchRequest := ldap.NewSearchRequest(
-			testAccProviderMeta.searchBase, // The base dn to search
+			testAccProviderMeta.SearchBase, // The base dn to search
 			ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 			fmt.Sprintf("(&(objectClass=organizationalUnit)(distinguishedName=%s))", rs.Primary.Attributes["ou"]), // The filter to apply
 			[]string{"organizationalUnit"}, // A list attributes to retrieve
@@ -109,7 +111,7 @@ func testAccCheckOrganizationalUnitExists(resourceName string) resource.TestChec
 	}
 }
 
-func testAccOrganizationalUnitDestroyed(ou string) resource.TestCheckFunc {
+func testAccAdldapOrganizationalUnitDestroyed(ou string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		exists, err := testAccProviderMeta.ObjectExists(ou, "organizationalUnit")
 		if err != nil {

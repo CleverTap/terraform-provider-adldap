@@ -30,7 +30,15 @@ func resourceUser() *schema.Resource {
 			"password": {
 				Description: "Password for the user object.",
 				Type:        schema.TypeString,
+				Sensitive:   true,
 				Required:    true,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					password := val.(string)
+					if password == "" {
+						errs = append(errs, fmt.Errorf("password must not be empty"))
+					}
+					return
+				},
 			},
 			"organizational_unit": {
 				Description: "The OU that the user should be in.",
@@ -47,6 +55,7 @@ func resourceUser() *schema.Resource {
 				Description: "Full name of the user object.",
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true,
 			},
 		},
 	}
@@ -55,28 +64,32 @@ func resourceUser() *schema.Resource {
 func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*LdapClient)
 
-	samaccountname := d.Get("samaccountname").(string)
+	sAMAccountName := d.Get("samaccountname").(string)
 	ou := d.Get("organizational_unit").(string)
 	password := d.Get("password").(string)
 	enabled := true
-
 	attributesMap := make(map[string][]string)
 
-	var name string
-	if d.Get("name") == nil {
-		name = samaccountname
-	} else {
-		name = d.Get("name").(string)
+	if d.Get("name") == "" {
+		d.Set("name", sAMAccountName)
 	}
+	name := d.Get("name").(string)
 
 	attributesMap["name"] = []string{name}
 
-	d.SetId(samaccountname)
-
-	err := createUserObject(client, samaccountname, password, ou, enabled, attributesMap)
+	account, err := client.CreateUserAccount(sAMAccountName, password, ou, attributesMap)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.Errorf("error creating account %s: %s", sAMAccountName, err)
 	}
+
+	if enabled {
+		err = account.Enable()
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	d.SetId(sAMAccountName)
 
 	return nil
 }
@@ -96,8 +109,8 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 		return diag.FromErr(err)
 	}
 
-	ou := account.ldapEntry.ParentObject()
-	name := account.ldapEntry.entry.GetAttributeValue("name")
+	ou := account.ParentDN()
+	name, _ := account.GetAttributeValue("name")
 
 	d.Set("samaccountname", d.Id())
 	d.Set("organizational_unit", ou)
@@ -109,51 +122,46 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 
 func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*LdapClient)
-	samaccountname := d.Id()
+	sAMAccountName := d.Id()
 
-	account, err := client.GetAccountBySAMAccountName(samaccountname, nil)
+	account, err := client.GetAccountBySAMAccountName(sAMAccountName, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	if d.HasChange("organizational_unit") {
-		newOU := d.Get("organizational_unit").(string)
+		_, newOU := d.GetChange("organizational_unit")
 
-		err := account.Move(newOU)
+		err := account.Move(newOU.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
-	// updatedAttributes := make(map[string][]string)
-
 	if d.HasChange("name") {
-		newName := d.Get("name").(string)
-		err := account.Rename(newName)
+		_, newName := d.GetChange("name")
+		err := account.Rename(newName.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
 	if d.HasChange("password") {
-		err := account.SetPassword(d.Get("password").(string))
+		_, newPassword := d.GetChange("password")
+		err := account.SetPassword(newPassword.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
 	}
-
-	// if len(updatedAttributes) > 0 {
-	// 	updateUserAttributes(client, samaccountname, updatedAttributes)
-	// }
 
 	return nil
 }
 
 func resourceUserDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*LdapClient)
-	samaccountname := d.Get("samaccountname").(string)
+	sAMAccountName := d.Get("samaccountname").(string)
 
-	account, err := client.GetAccountBySAMAccountName(samaccountname, nil)
+	account, err := client.GetAccountBySAMAccountName(sAMAccountName, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -162,34 +170,5 @@ func resourceUserDelete(ctx context.Context, d *schema.ResourceData, meta interf
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	return nil
-}
-
-func createUserObject(client *LdapClient, sAMAccountName string, password string, ou string, enabled bool, attributes map[string][]string) error {
-	exists, err := client.AccountExists(sAMAccountName)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("user object \"%s\" already exists", sAMAccountName)
-	}
-
-	account, err := client.CreateUserAccount(sAMAccountName, ou, attributes)
-	if err != nil {
-		return fmt.Errorf("error creating account %s: %s", sAMAccountName, err)
-	}
-
-	err = account.SetPassword(password)
-	if err != nil {
-		return err
-	}
-
-	if enabled {
-		err = account.Enable()
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }

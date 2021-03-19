@@ -10,7 +10,7 @@ import (
 func resourceComputer() *schema.Resource {
 	return &schema.Resource{
 		// This description is used by the documentation generator and the language server.
-		Description: "`adldap_user` manages a computer account in Active Directory.",
+		Description: "`adldap_computer` manages a computer account in Active Directory.",
 
 		CreateContext: resourceComputerCreate,
 		ReadContext:   resourceComputerRead,

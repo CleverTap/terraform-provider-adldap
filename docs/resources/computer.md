@@ -17,8 +17,8 @@ description: |-
 
 ### Required
 
-- **name** (String) The SAMAccountName of the computer object, with trailing "$".
 - **organizational_unit** (String) The OU that the computer should be in.
+- **samaccountname** (String) The SAMAccountName of the computer object, with trailing "$".
 
 ### Read-Only
 

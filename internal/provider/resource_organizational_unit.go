@@ -20,6 +20,11 @@ func resourceOrganizationalUnit() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"id": {
+				Description: "The ID (DN) of the organizational unit.",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 			"distinguished_name": {
 				Description: "The full distinguished name of the organizational unit.",
 				Type:        schema.TypeString,

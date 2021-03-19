@@ -17,8 +17,8 @@ description: |-
 
 ### Required
 
-- **samaccountname** (String)
-- **spn** (String)
+- **samaccountname** (String) The account on which to attach the service principal.
+- **spn** (String) The service principal name, usually in `{service}/{fqdn}` format
 
 ### Read-Only
 

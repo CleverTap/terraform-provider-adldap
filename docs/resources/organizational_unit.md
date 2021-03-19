@@ -3,12 +3,12 @@
 page_title: "adldap_organizational_unit Resource - terraform-provider-adldap"
 subcategory: ""
 description: |-
-  Creates and destroys LDAP organizational units.
+  adldap_organizational_unit manages an OU in Active Directory.
 ---
 
 # adldap_organizational_unit (Resource)
 
-Creates and destroys LDAP organizational units.
+`adldap_organizational_unit` manages an OU in Active Directory.
 
 
 
@@ -21,6 +21,7 @@ Creates and destroys LDAP organizational units.
 
 ### Optional
 
+- **create_parents** (Boolean)
 - **id** (String) The ID of this resource.
 
 

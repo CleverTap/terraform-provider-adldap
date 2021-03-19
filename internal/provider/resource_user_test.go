@@ -68,6 +68,13 @@ func TestAccAdldapResourceUser(t *testing.T) {
 					testAccAdldapUserBind(testUser, testUserPassword2),
 				),
 			},
+			{
+				Config: testAccAdldapResourceUser(testUser+"b", testUserPassword2, testUserFullName+"-2", testUserOU2),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(
+						"adldap_user.foo", "samaccountname", testUser+"b"),
+				),
+			},
 		},
 	})
 }

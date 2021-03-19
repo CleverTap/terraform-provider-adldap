@@ -9,7 +9,7 @@ import (
 
 func resourceOrganizationalUnit() *schema.Resource {
 	return &schema.Resource{
-		Description: "Creates and destroys LDAP organizational units.",
+		Description: "`adldap_organizational_unit` manages an OU in Active Directory.",
 
 		CreateContext: resourceOrganizationalUnitCreate,
 		ReadContext:   resourceOrganizationalUnitRead,
@@ -21,13 +21,15 @@ func resourceOrganizationalUnit() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"distinguished_name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Description: "The full distinguished name of the organizational unit.",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"create_parents": {
-				Type:     schema.TypeBool,
-				Default:  false,
-				Optional: true,
+				Description: "Whether to create all required parent OUs. These parent OUs will not be managed or removed automatically unless specified in another resource. Defaults to `false`.",
+				Type:        schema.TypeBool,
+				Default:     false,
+				Optional:    true,
 			},
 		},
 	}

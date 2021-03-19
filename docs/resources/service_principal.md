@@ -3,12 +3,12 @@
 page_title: "adldap_service_principal Resource - terraform-provider-adldap"
 subcategory: ""
 description: |-
-  Manages service principal names associated to samaccountnames.
+  adldap_service_principal manages an SPN attached to a user in Active Directory.
 ---
 
 # adldap_service_principal (Resource)
 
-Manages service principal names associated to samaccountnames.
+`adldap_service_principal` manages an SPN attached to a user in Active Directory.
 
 
 
@@ -20,8 +20,8 @@ Manages service principal names associated to samaccountnames.
 - **samaccountname** (String)
 - **spn** (String)
 
-### Optional
+### Read-Only
 
-- **id** (String) The ID of this resource.
+- **id** (String) The ID of the SPN in {spn}---{samaccountname} format.
 
 

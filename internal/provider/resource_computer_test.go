@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	testComputer    = fmt.Sprintf("tfacctst-%d$", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(999999))
+	testComputer    = fmt.Sprintf("tfacctst-%d$", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(99999))
 	testComputerOU  = os.Getenv("ADLDAP_TEST_COMPUTER_OU")
 	testComputerOU2 = os.Getenv("ADLDAP_TEST_COMPUTER_OU2")
 )
@@ -41,6 +41,13 @@ func TestAccAdldapResourceComputer(t *testing.T) {
 						"adldap_computer.foo", "organizational_unit", testComputerOU2),
 				),
 			},
+			{
+				Config: testAccAdldapResourceComputer(testComputer+"b", testComputerOU2),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(
+						"adldap_computer.foo", "samaccountname", testComputer+"b"),
+				),
+			},
 		},
 	})
 }
@@ -48,7 +55,7 @@ func TestAccAdldapResourceComputer(t *testing.T) {
 func testAccAdldapResourceComputer(computerName string, computerOU string) string {
 	return fmt.Sprintf(`
 resource "adldap_computer" "foo" {
-  name                = "%s"
+  samaccountname      = "%s"
   organizational_unit = "%s"
 }
 `, computerName, computerOU)

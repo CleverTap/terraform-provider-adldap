@@ -12,7 +12,7 @@ import (
 func resourceServicePrincipal() *schema.Resource {
 	return &schema.Resource{
 		// This description is used by the documentation generator and the language server.
-		Description: "Manages service principal names associated to samaccountnames.",
+		Description: "`adldap_service_principal` manages an SPN attached to a user in Active Directory.",
 
 		CreateContext: resourceServicePrincipalCreate,
 		ReadContext:   resourceServicePrincipalRead,
@@ -22,15 +22,22 @@ func resourceServicePrincipal() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"id": {
+				Description: "The ID of the SPN in {spn}---{samaccountname} format.",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 			"samaccountname": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Description: "The account on which to attach the service principal.",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"spn": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Description: "The service principal name, usually in `{service}/{fqdn}` format",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 		},
 	}

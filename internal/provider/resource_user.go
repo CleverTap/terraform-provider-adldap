@@ -10,7 +10,7 @@ import (
 
 func resourceUser() *schema.Resource {
 	return &schema.Resource{
-		Description: "Manage a user object in Active Directory.",
+		Description: "`adldap_user` manages a user account in Active Directory.",
 
 		CreateContext: resourceUserCreate,
 		ReadContext:   resourceUserRead,
@@ -21,14 +21,18 @@ func resourceUser() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"id": {
+				Description: "The ID (SAMAccountName) of the user.",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 			"samaccountname": {
-				Description: "SamAccountName of the user object.",
+				Description: "The SAMAccountName of the user.",
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 			},
 			"password": {
-				Description: "Password for the user object.",
+				Description: "The password for the user.",
 				Type:        schema.TypeString,
 				Sensitive:   true,
 				Required:    true,
@@ -46,13 +50,13 @@ func resourceUser() *schema.Resource {
 				Required:    true,
 			},
 			"enabled": {
-				Description: "Whether the account is enabled.",
+				Description: "Whether the account is enabled.  Defaults to `true`.",
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 			},
 			"name": {
-				Description: "Full name of the user object.",
+				Description: "Full name of the user object.  Defaults to the `samaccountname` of the resource.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				Computed:    true,
@@ -121,6 +125,8 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 }
 
 func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	var err error
+
 	client := meta.(*LdapClient)
 	sAMAccountName := d.Id()
 
@@ -132,7 +138,7 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 	if d.HasChange("organizational_unit") {
 		_, newOU := d.GetChange("organizational_unit")
 
-		err := account.Move(newOU.(string))
+		err = account.Move(newOU.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -140,7 +146,7 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	if d.HasChange("name") {
 		_, newName := d.GetChange("name")
-		err := account.Rename(newName.(string))
+		err = account.Rename(newName.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -148,10 +154,29 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	if d.HasChange("password") {
 		_, newPassword := d.GetChange("password")
-		err := account.SetPassword(newPassword.(string))
+		err = account.SetPassword(newPassword.(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
+	}
+
+	if d.HasChange("enabled") {
+		_, newEnabledState := d.GetChange("enabled")
+		if newEnabledState.(bool) {
+			err = account.Enable()
+		} else {
+			err = account.Disable()
+		}
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("samaccountname") {
+		_, newSAMAccountName := d.GetChange("samaccountname")
+		account.UpdateAttribute("sAMAccountName", []string{newSAMAccountName.(string)})
+
+		d.SetId(newSAMAccountName.(string))
 	}
 
 	return nil

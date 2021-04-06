@@ -57,6 +57,11 @@ func resourceUser() *schema.Resource {
 				Optional:    true,
 				Computed:    true,
 			},
+			"description": {
+				Description: "Description property of the user.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 			"enabled": {
 				Description: "Whether the account is enabled.  Defaults to `true`.",
 				Type:        schema.TypeBool,
@@ -79,6 +84,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	sAMAccountName := d.Get("samaccountname").(string)
 	ou := d.Get("organizational_unit").(string)
 	password := d.Get("password").(string)
+	description := d.Get("description").(string)
 	enabled := true
 	dontExpirePassword := d.Get("dont_expire_password").(bool)
 	attributesMap := make(map[string][]string)
@@ -87,8 +93,11 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 		d.Set("name", sAMAccountName)
 	}
 	name := d.Get("name").(string)
-
 	attributesMap["name"] = []string{name}
+
+	if description != "" {
+		attributesMap["description"] = []string{"description"}
+	}
 
 	account, err := client.CreateUserAccount(sAMAccountName, password, ou, attributesMap)
 	if err != nil {
@@ -128,6 +137,8 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 
 	name, _ := account.GetAttributeValue("name")
 
+	description, _ := account.GetAttributeValue("description")
+
 	dontExpirePassword, err := account.UACFlagIsSet(DONT_EXPIRE_PASSWORD)
 	if err != nil {
 		return diag.FromErr(err)
@@ -141,6 +152,7 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 	d.Set("samaccountname", d.Id())
 	d.Set("organizational_unit", ou)
 	d.Set("name", name)
+	d.Set("description", description)
 	d.Set("dont_expire_password", dontExpirePassword)
 	d.Set("enabled", accountEnabled)
 
@@ -170,6 +182,14 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 	if d.HasChange("name") {
 		_, newName := d.GetChange("name")
 		err = account.Rename(newName.(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("description") {
+		_, newDescription := d.GetChange("description")
+		err = account.UpdateAttribute("description", []string{newDescription.(string)})
 		if err != nil {
 			return diag.FromErr(err)
 		}

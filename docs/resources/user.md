@@ -23,6 +23,7 @@ description: |-
 
 ### Optional
 
+- **dont_expire_password** (Boolean) Whether the account's password expires according to directory settings.  Defaults to `false`.
 - **enabled** (Boolean) Whether the account is enabled.  Defaults to `true`.
 - **name** (String) Full name of the user object.  Defaults to the `samaccountname` of the resource.
 

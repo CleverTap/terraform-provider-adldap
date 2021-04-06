@@ -3,12 +3,12 @@
 page_title: "adldap_computer Resource - terraform-provider-adldap"
 subcategory: ""
 description: |-
-  adldap_user manages a computer account in Active Directory.
+  adldap_computer manages a computer account in Active Directory.
 ---
 
 # adldap_computer (Resource)
 
-`adldap_user` manages a computer account in Active Directory.
+`adldap_computer` manages a computer account in Active Directory.
 
 
 

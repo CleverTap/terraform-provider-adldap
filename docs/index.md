@@ -14,7 +14,7 @@ The ADLDAP provider provides resources to interact with Active Directory through
 ```terraform
 provider "adldap" {
   url           = "ldaps://example.com"
-  bind_account  = "admin"
+  bind_account  = "admin@example.com" # Or "CN=admin,CN=Users,DC=example,DC=com"
   bind_password = "password123"
   search_base   = "DC=example,DC=com"
 }

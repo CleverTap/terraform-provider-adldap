@@ -90,6 +90,20 @@ func (a *LdapAccount) RemoveUACFlag(flags int64) error {
 	return err
 }
 
+func (a *LdapAccount) UACFlagIsSet(flags int) (bool, error) {
+	currentUAC, err := a.GetUserAccountControl()
+	if err != nil {
+		return false, err
+	}
+
+	isSet, err := uac.IsSet(currentUAC, flags)
+	if err != nil {
+		return false, err
+	}
+
+	return isSet, nil
+}
+
 func (a *LdapAccount) SetPassword(password string) error {
 	passwordEncoded, err := encodePassword(password)
 	if err != nil {

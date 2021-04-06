@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+const DONT_EXPIRE_PASSWORD = 65536
+
 func resourceUser() *schema.Resource {
 	return &schema.Resource{
 		Description: "`adldap_user` manages a user account in Active Directory.",
@@ -49,17 +51,23 @@ func resourceUser() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 			},
+			"name": {
+				Description: "Full name of the user object.  Defaults to the `samaccountname` of the resource.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+			},
 			"enabled": {
 				Description: "Whether the account is enabled.  Defaults to `true`.",
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 			},
-			"name": {
-				Description: "Full name of the user object.  Defaults to the `samaccountname` of the resource.",
-				Type:        schema.TypeString,
+			"dont_expire_password": {
+				Description: "Whether the account's password expires according to directory settings.  Defaults to `false`.",
+				Type:        schema.TypeBool,
 				Optional:    true,
-				Computed:    true,
+				Default:     false,
 			},
 		},
 	}
@@ -72,6 +80,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	ou := d.Get("organizational_unit").(string)
 	password := d.Get("password").(string)
 	enabled := true
+	dontExpirePassword := d.Get("dont_expire_password").(bool)
 	attributesMap := make(map[string][]string)
 
 	if d.Get("name") == "" {
@@ -93,6 +102,13 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 		}
 	}
 
+	if dontExpirePassword {
+		err = account.AddUACFlag(DONT_EXPIRE_PASSWORD)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	d.SetId(sAMAccountName)
 
 	return nil
@@ -108,17 +124,24 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 		return diag.FromErr(err)
 	}
 
+	ou := account.ParentDN()
+
+	name, _ := account.GetAttributeValue("name")
+
+	dontExpirePassword, err := account.UACFlagIsSet(DONT_EXPIRE_PASSWORD)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
 	accountEnabled, err := account.IsEnabled()
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	ou := account.ParentDN()
-	name, _ := account.GetAttributeValue("name")
-
 	d.Set("samaccountname", d.Id())
 	d.Set("organizational_unit", ou)
 	d.Set("name", name)
+	d.Set("dont_expire_password", dontExpirePassword)
 	d.Set("enabled", accountEnabled)
 
 	return nil
@@ -172,6 +195,19 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 		}
 	}
 
+	if d.HasChange("dont_expire_password") {
+		_, newDontExpirePassword := d.GetChange("dont_expire_password")
+		if newDontExpirePassword.(bool) {
+			err = account.AddUACFlag(DONT_EXPIRE_PASSWORD)
+		} else {
+			err = account.RemoveUACFlag(DONT_EXPIRE_PASSWORD)
+		}
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	// Change samaccountname last to avoid having to refresh the object
 	if d.HasChange("samaccountname") {
 		_, newSAMAccountName := d.GetChange("samaccountname")
 		account.UpdateAttribute("sAMAccountName", []string{newSAMAccountName.(string)})

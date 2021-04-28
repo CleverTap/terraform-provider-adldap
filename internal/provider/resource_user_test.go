@@ -84,10 +84,12 @@ func testAccAdldapResourceUser(userName string, password string, fullName string
 resource "adldap_user" "foo" {
   samaccountname      = "%s"
   password            = "%s"
-  name                = "%s"
   organizational_unit = "%s"
+  name                = "%s"
+  upn                 = "%s@example.com"
+  spns                = ["TFTEST/%s","TFTEST-2/%s"]
 }
-`, userName, password, fullName, userOU)
+`, userName, password, userOU, fullName, userName, userName, userName)
 }
 
 func testAccAdldapUserBind(samaccountname string, password string) resource.TestCheckFunc {

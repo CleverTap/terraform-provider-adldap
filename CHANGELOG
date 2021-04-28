@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2021-04-28
+- Add upn and spns attributes to user resource.
+- Fix description not set on create
+
 ## [1.0.2] - 2021-04-06
 - Add description parameter to user resource.
 

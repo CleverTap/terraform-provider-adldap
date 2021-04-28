@@ -33,6 +33,19 @@ func resourceUser() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 			},
+			"upn": {
+				Description: "The user principal name of the user.",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+			"spns": {
+				Description: "A list of the service principal names for the user.",
+				Type:        schema.TypeList,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				Optional: true,
+			},
 			"password": {
 				Description: "The password for the user.",
 				Type:        schema.TypeString,
@@ -82,12 +95,19 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	client := meta.(*LdapClient)
 
 	sAMAccountName := d.Get("samaccountname").(string)
+	upn := d.Get("upn").(string)
 	ou := d.Get("organizational_unit").(string)
 	password := d.Get("password").(string)
 	description := d.Get("description").(string)
 	enabled := true
 	dontExpirePassword := d.Get("dont_expire_password").(bool)
 	attributesMap := make(map[string][]string)
+
+	spnsRaw := d.Get("spns").([]interface{})
+	spns := make([]string, len(spnsRaw))
+	for i, elem := range spnsRaw {
+		spns[i] = elem.(string)
+	}
 
 	if d.Get("name") == "" {
 		d.Set("name", sAMAccountName)
@@ -97,6 +117,14 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	if description != "" {
 		attributesMap["description"] = []string{description}
+	}
+
+	if upn != "" {
+		attributesMap["userPrincipalName"] = []string{upn}
+	}
+
+	if len(spns) > 0 {
+		attributesMap["servicePrincipalName"] = spns
 	}
 
 	account, err := client.CreateUserAccount(sAMAccountName, password, ou, attributesMap)
@@ -136,9 +164,9 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 	ou := account.ParentDN()
 
 	name, _ := account.GetAttributeValue("name")
-
+	upn, _ := account.GetAttributeValue("userPrincipalName")
+	spns, _ := account.GetAttributeValues("servicePrincipalName")
 	description, _ := account.GetAttributeValue("description")
-
 	dontExpirePassword, err := account.UACFlagIsSet(DONT_EXPIRE_PASSWORD)
 	if err != nil {
 		return diag.FromErr(err)
@@ -152,6 +180,8 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, meta interfac
 	d.Set("samaccountname", d.Id())
 	d.Set("organizational_unit", ou)
 	d.Set("name", name)
+	d.Set("upn", upn)
+	d.Set("spns", spns)
 	d.Set("description", description)
 	d.Set("dont_expire_password", dontExpirePassword)
 	d.Set("enabled", accountEnabled)
@@ -182,6 +212,22 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 	if d.HasChange("name") {
 		_, newName := d.GetChange("name")
 		err = account.Rename(newName.(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("upn") {
+		_, newUPN := d.GetChange("upn")
+		err = account.UpdateAttribute("userPrincipalName", []string{newUPN.(string)})
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("spns") {
+		_, newSPNs := d.GetChange("spns")
+		err = account.UpdateAttribute("servicePrincipalName", newSPNs.([]string))
 		if err != nil {
 			return diag.FromErr(err)
 		}

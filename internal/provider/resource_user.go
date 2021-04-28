@@ -96,7 +96,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	attributesMap["name"] = []string{name}
 
 	if description != "" {
-		attributesMap["description"] = []string{"description"}
+		attributesMap["description"] = []string{description}
 	}
 
 	account, err := client.CreateUserAccount(sAMAccountName, password, ou, attributesMap)

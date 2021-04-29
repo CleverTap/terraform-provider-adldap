@@ -40,7 +40,7 @@ func resourceUser() *schema.Resource {
 			},
 			"spns": {
 				Description: "A list of the service principal names for the user.",
-				Type:        schema.TypeList,
+				Type:        schema.TypeSet,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -96,18 +96,13 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	sAMAccountName := d.Get("samaccountname").(string)
 	upn := d.Get("upn").(string)
+	spns := setToStingArray(d.Get("spns").(*schema.Set))
 	ou := d.Get("organizational_unit").(string)
 	password := d.Get("password").(string)
 	description := d.Get("description").(string)
 	enabled := true
 	dontExpirePassword := d.Get("dont_expire_password").(bool)
 	attributesMap := make(map[string][]string)
-
-	spnsRaw := d.Get("spns").([]interface{})
-	spns := make([]string, len(spnsRaw))
-	for i, elem := range spnsRaw {
-		spns[i] = elem.(string)
-	}
 
 	if d.Get("name") == "" {
 		d.Set("name", sAMAccountName)
@@ -227,7 +222,7 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	if d.HasChange("spns") {
 		_, newSPNs := d.GetChange("spns")
-		err = account.UpdateAttribute("servicePrincipalName", newSPNs.([]string))
+		err = account.UpdateAttribute("servicePrincipalName", setToStingArray(newSPNs.(*schema.Set)))
 		if err != nil {
 			return diag.FromErr(err)
 		}

@@ -45,6 +45,10 @@ func TestAccAdldapResourceUser(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_user.foo", "samaccountname", testUser),
+					resource.TestCheckTypeSetElemAttr(
+						"adldap_user.foo", "spns.*", fmt.Sprintf("TFTEST/%s", testUser)),
+					resource.TestCheckTypeSetElemAttr(
+						"adldap_user.foo", "spns.*", fmt.Sprintf("TFTEST-2/%s", testUser)),
 					testAccAdldapUserBind(testUser, testUserPassword),
 				),
 			},
@@ -73,6 +77,10 @@ func TestAccAdldapResourceUser(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
 						"adldap_user.foo", "samaccountname", testUser+"b"),
+					resource.TestCheckTypeSetElemAttr(
+						"adldap_user.foo", "spns.*", fmt.Sprintf("TFTEST/%s", testUser+"b")),
+					resource.TestCheckTypeSetElemAttr(
+						"adldap_user.foo", "spns.*", fmt.Sprintf("TFTEST-2/%s", testUser+"b")),
 				),
 			},
 		},

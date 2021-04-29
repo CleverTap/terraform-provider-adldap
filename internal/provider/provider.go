@@ -64,3 +64,13 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 
 	return client, nil
 }
+
+func setToStingArray(set *schema.Set) []string {
+	list := set.List()
+	arr := make([]string, len(list))
+
+	for i, elem := range list {
+		arr[i] = elem.(string)
+	}
+	return arr
+}

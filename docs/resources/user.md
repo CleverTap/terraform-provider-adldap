@@ -27,6 +27,8 @@ description: |-
 - **dont_expire_password** (Boolean) Whether the account's password expires according to directory settings.  Defaults to `false`.
 - **enabled** (Boolean) Whether the account is enabled.  Defaults to `true`.
 - **name** (String) Full name of the user object.  Defaults to the `samaccountname` of the resource.
+- **spns** (Set of String) A list of the service principal names for the user.
+- **upn** (String) The user principal name of the user.
 
 ### Read-Only
 

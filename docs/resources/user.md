@@ -18,18 +18,22 @@ description: |-
 ### Required
 
 - **organizational_unit** (String) The OU that the user should be in.
-- **password** (String, Sensitive) The password for the user.
-- **samaccountname** (String) The SAMAccountName of the user.
+- **sam_account_name** (String) The SAMAccountName of the user.
 
 ### Optional
 
 - **description** (String) Description property of the user.
-- **dont_expire_password** (Boolean) Whether the account's password expires according to directory settings.  Defaults to `false`.
-- **enabled** (Boolean) Whether the account is enabled.  Defaults to `true`.
-- **name** (String) Full name of the user object.  Defaults to the `samaccountname` of the resource.
-- **spns** (Set of String) A list of the service principal names for the user.
-- **upn** (String) The user principal name of the user.
-
+- **password** (String, Sensitive) The password for the user.
+- **dont_expire_password** (Boolean) Whether the account's password expires according to directory settings. Defaults to `false`.
+- **enabled** (Boolean) Whether the account is enabled. Defaults to `false`.
+- **display_name** (String) Full name of the user object. Defaults to the `sam_account_name` of the resource.
+- **service_principal_names** (Set of String) A list of the service principal names for the user.
+- **user_principal_name** (String) The user principal name of the user.
+- **email_address** (String) The mail attribute value.
+- **given_name** (String) First Name of user.
+- **initials** (String) Initials in user name.
+- **surname** (String) Last name of user.
+ 
 ### Read-Only
 
 - **id** (String) The ID (SAMAccountName) of the user.

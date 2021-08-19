@@ -360,7 +360,7 @@ func (c *LdapClient) CreateAccount(sAMAccountName string, ou string, attributes 
 		attributes = make(map[string][]string)
 	}
 
-	if val, ok := attributes["name"]; ok {
+	if val, ok := attributes["displayName"]; ok {
 		name = val[0]
 	} else {
 		name = strings.TrimRight(sAMAccountName, "$")

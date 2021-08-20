@@ -16,7 +16,7 @@ func resourceOrganizationalUnit() *schema.Resource {
 		UpdateContext: resourceOrganizationalUnitUpdate,
 		DeleteContext: resourceOrganizationalUnitDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceOrganizationalUnitImport,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -46,7 +46,7 @@ func resourceOrganizationalUnitCreate(ctx context.Context, d *schema.ResourceDat
 	client := meta.(*LdapClient)
 
 	dn := d.Get("distinguished_name").(string)
-	createParents := d.Get("create_parents").(bool)
+	createParents :=  d.Get("create_parents").(bool)
 
 	if createParents {
 		_, err := client.CreateOUAndParents(dn)
@@ -79,8 +79,11 @@ func resourceOrganizationalUnitRead(ctx context.Context, d *schema.ResourceData,
 
 	if exists {
 		d.SetId(dn)
+		d.Set("distinguished_name", dn)
+		d.Set("create_parents", false)
 	} else {
-		return diag.Errorf("unable to import non-existent organizational unit \"%s\"", dn)
+		d.SetId("")
+		return nil
 	}
 
 	return diags
@@ -128,4 +131,25 @@ func resourceOrganizationalUnitDelete(ctx context.Context, d *schema.ResourceDat
 	}
 
 	return diags
+}
+
+func resourceOrganizationalUnitImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+
+	client := meta.(*LdapClient)
+
+	dn := d.Id()
+	exists, err := client.ObjectExists(dn, "organizationalUnit")
+	if err != nil {
+		return nil, err
+	}
+
+	if exists {
+		d.SetId(dn)
+		d.Set("distinguished_name", dn)
+		d.Set("create_parents", false)
+	} else {
+		return nil, err
+	}
+
+	return []*schema.ResourceData{d}, nil
 }

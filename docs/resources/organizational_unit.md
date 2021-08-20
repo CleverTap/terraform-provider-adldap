@@ -19,10 +19,6 @@ description: |-
 
 - **distinguished_name** (String) The full distinguished name of the organizational unit.
 
-### Optional
-
-- **create_parents** (Boolean) Whether to create all required parent OUs. These parent OUs will not be managed or removed automatically unless specified in another resource. Defaults to `false`.
-
 ### Read-Only
 
 - **id** (String) The ID (DN) of the organizational unit.

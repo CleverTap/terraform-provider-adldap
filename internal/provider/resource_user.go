@@ -19,7 +19,7 @@ func resourceUser() *schema.Resource {
 		UpdateContext: resourceUserUpdate,
 		DeleteContext: resourceUserDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceUserImport,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -369,4 +369,49 @@ func resourceUserDelete(ctx context.Context, d *schema.ResourceData, meta interf
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceUserImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	client := meta.(*LdapClient)
+	requestedAttributes := []string{"displayName", "givenName", "sn", "mail", "initials"}
+
+	// Use the samAccountName as the resource ID
+	account, err := client.GetAccountBySAMAccountName(d.Id(), requestedAttributes)
+	if err != nil {
+		return nil, err
+	}
+
+	distinguishedName := account.ParentDN()
+	givenName, _ := account.GetAttributeValue("givenName")
+	sn, _ := account.GetAttributeValue("sn")
+	initials, _ := account.GetAttributeValue("initials")
+	mail, _ := account.GetAttributeValue("mail")
+	displayName, _ := account.GetAttributeValue("displayName")
+	userPrincipalName, _ := account.GetAttributeValue("userPrincipalName")
+	servicePrincipalName, _ := account.GetAttributeValues("servicePrincipalName")
+	description, _ := account.GetAttributeValue("description")
+	dontExpirePassword, err := account.UACFlagIsSet(DONT_EXPIRE_PASSWORD)
+	if err != nil {
+		return nil, err
+	}
+
+	accountEnabled, err := account.IsEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	d.Set("sam_account_name", d.Id())
+	d.Set("organizational_unit", distinguishedName)
+	d.Set("display_name", displayName)
+	d.Set("user_principal_name", userPrincipalName)
+	d.Set("service_principal_names", servicePrincipalName)
+	d.Set("description", description)
+	d.Set("dont_expire_password", dontExpirePassword)
+	d.Set("enabled", accountEnabled)
+	d.Set("given_name", givenName)
+	d.Set("surname", sn)
+	d.Set("initials", initials)
+	d.Set("email_address", mail)
+
+	return []*schema.ResourceData{d}, nil
 }

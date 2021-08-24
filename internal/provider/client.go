@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"crypto/tls"
 
 	uac "github.com/audibleblink/msldapuac"
 	"github.com/go-ldap/ldap/v3"
@@ -82,7 +83,7 @@ func (c *LdapClient) New(url string, bindAccount string, bindPassword string, se
 	c.LdapURL = url
 	c.ActIdempotently = actIdempotently
 
-	c.Conn, err = ldap.DialURL(url)
+	c.Conn, err = ldap.DialURL(url, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 	if err != nil {
 		return err
 	}

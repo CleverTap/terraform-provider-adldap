@@ -14,19 +14,19 @@ func New() *schema.Provider {
 			"url": {
 				Description: "The URL of the LDAP server, prefixed with ldap:// or ldaps://. Can be specified with the `ADLDAP_URL` environment variable.",
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_URL", ""),
 			},
 			"bind_account": {
 				Description: "The full DN or UPN used to bind to the directory. Can be specified with the `ADLDAP_BIND_ACCOUNT` environment variable.",
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_BIND_ACCOUNT", ""),
 			},
 			"bind_password": {
 				Description: "The password for the bind account. Can be specified with the `ADLDAP_BIND_PASSWORD` environment variable.",
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("ADLDAP_BIND_PASSWORD", ""),
 			},

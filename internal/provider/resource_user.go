@@ -346,9 +346,12 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	// Change samaccountname last to avoid having to refresh the object
-	if d.HasChange("samaccountname") {
-		_, newSAMAccountName := d.GetChange("samaccountname")
-		account.UpdateAttribute("sAMAccountName", []string{newSAMAccountName.(string)})
+	if d.HasChange("sam_account_name") {
+		_, newSAMAccountName := d.GetChange("sam_account_name")
+		err = account.UpdateAttribute("sAMAccountName", []string{newSAMAccountName.(string)})
+		if err != nil {
+			return diag.FromErr(err)
+		}
 		d.SetId(newSAMAccountName.(string))
 	}
 
